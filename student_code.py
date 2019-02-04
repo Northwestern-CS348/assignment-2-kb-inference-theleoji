@@ -88,7 +88,7 @@ class KnowledgeBase(object):
         Args:
             fact_rule (Fact or Rule): Fact or Rule we're asserting
         """
-        printv("Asserting {!r}", 0, verbose, [fact_rule])
+        # print("Asserting {!r}".format(fact_rule))
         self.kb_add(fact_rule)
 
     def kb_ask(self, fact):
@@ -100,10 +100,11 @@ class KnowledgeBase(object):
         Returns:
             listof Bindings|False - list of Bindings if result found, False otherwise
         """
-        print("Asking {!r}".format(fact))
+        # print("Asking {!r}".format(fact))
         if factq(fact):
             f = Fact(fact.statement)
             bindings_lst = ListOfBindings()
+
             # ask matched facts
             for fact in self.facts:
                 binding = match(f.statement, fact.statement)
@@ -125,28 +126,52 @@ class KnowledgeBase(object):
         Returns:
             None
         """
-        printv("Retracting {!r}", 0, verbose, [fact])
+        # print("Retracting {!r}".format(fact))
         ####################################################
         # Student code goes here
 
-        the_fact = Fact();
-        for facti in self.facts:
-            if(util.match(facti.statement, fact.statement)):
-                the_fact = facti
+        if(factq(fact)):
+            the_fact = self._get_fact(fact)
 
-        self.facts.remove(the_fact)
+            if the_fact.asserted:
+                if len(the_fact.supported_by):
+                    the_fact.asserted = False
+                else:
+                    self.kb_remove(fact)
+            else:
+                self.kb_remove(fact)
+
+    def kb_remove(self, fact):
+        the_fact = self._get_fact(fact)
 
         for supported_fact in the_fact.supports_facts:
-            supported_fact.supported_by.remove(the_fact)
-            if supported_fact.supported_by.len == 0 and not supported_fact.asserted:
-                self.facts.remove(the_fact)
+            for tuple in supported_fact.supported_by:
+                if(tuple[0] == the_fact):
+                    supported_fact.supported_by.remove(tuple)
+            if len(supported_fact.supported_by) == 0 and not supported_fact.asserted:
+                self.kb_retract(supported_fact)
 
-        for supported_rule in the_fact.supports_rule:
-            supported_rule.supported_by.remove(the_fact)
-            if supported_rule.supported_by.len == 0 and not supported_rule.asserted:
-                self.rules.remove(the_fact)
+        for supported_rule in the_fact.supports_rules:
+            for tuple in supported_rule.supported_by:
+                if(tuple[0] == the_fact):
+                    supported_rule.supported_by.remove(tuple)
+                    
+            # for supported_fact in the_fact.supports_facts:
+            #     for tuple in supported_fact.supported_by:
+            #         if(tuple[0] == the_fact):
+            #             supported_fact.supported_by.remove(tuple)
 
-
+            if len(supported_rule.supported_by) == 0 and not supported_rule.asserted:
+                self.rules.remove(supported_rule)
+                the_rule = supported_rule
+                # check supported facts by this inferred rule.
+                # if that fact is not longer supported, RETRACT IT
+                for supported_fact in the_rule.supports_facts:
+                    for tuple in supported_fact.supported_by:
+                        if(tuple[1] == the_rule):
+                            supported_fact.supported_by.remove(tuple)
+                    if(len(supported_fact.supported_by) == 0):
+                        self.kb_retract(supported_fact)
 
 class InferenceEngine(object):
     def fc_infer(self, fact, rule, kb):
@@ -164,5 +189,26 @@ class InferenceEngine(object):
             [fact.statement, rule.lhs, rule.rhs])
         ####################################################
         # Student code goes here
-        if util.match(fact.statement, rule.lhs[0]):
-            kb_assert(Rule((rule.lhs[1:], rule.rhs),util.match(fact.statement, rule.lhs[0])))
+        bindings = match(fact.statement, rule.lhs[0])
+        if bindings:
+
+            if(len(rule.lhs) == 1):
+                # the rule only has one predicate on the left, so we're inferring a fact
+                new_statement = instantiate(rule.rhs, bindings)
+                new_fact = Fact(new_statement, [[fact, rule]])
+                # print('Inferring fact', new_fact, "\n")
+                kb.kb_assert(new_fact)
+                fact.supports_facts.append(new_fact)
+                rule.supports_facts.append(new_fact)
+            else:
+                # there is more than one predicate, we're inferring a rule
+                new_statement = []
+                for lhsItem in rule.lhs:
+                    if (lhsItem != rule.lhs[0]):
+                        new_statement.append(instantiate(lhsItem, bindings))
+                new_rhs = instantiate(rule.rhs, bindings)
+                new_rule = Rule([new_statement, new_rhs],[[fact, rule]])
+                # print('Inferring rule', new_rule, "\n")
+                kb.kb_assert(new_rule)
+                fact.supports_rules.append(new_rule)
+                rule.supports_rules.append(new_rule)
