@@ -89,6 +89,7 @@ class KnowledgeBase(object):
             fact_rule (Fact or Rule): Fact or Rule we're asserting
         """
         # print("Asserting {!r}".format(fact_rule))
+
         self.kb_add(fact_rule)
 
     def kb_ask(self, fact):
@@ -130,16 +131,15 @@ class KnowledgeBase(object):
         ####################################################
         # Student code goes here
 
-        if(factq(fact)):
+        if(isinstance(fact, Fact)):
             the_fact = self._get_fact(fact)
 
-            if the_fact.asserted:
-                if len(the_fact.supported_by):
-                    the_fact.asserted = False
-                else:
-                    self.kb_remove(fact)
+            if the_fact.asserted and len(the_fact.supported_by):
+                the_fact.asserted = False
+            elif len(the_fact.supported_by):
+                pass
             else:
-                self.kb_remove(fact)
+                self.kb_remove(the_fact)
 
     def kb_remove(self, fact):
         the_fact = self._get_fact(fact)
@@ -149,21 +149,15 @@ class KnowledgeBase(object):
                 if(tuple[0] == the_fact):
                     supported_fact.supported_by.remove(tuple)
             if len(supported_fact.supported_by) == 0 and not supported_fact.asserted:
-                self.kb_retract(supported_fact)
+                self.kb_remove(supported_fact)
 
         for supported_rule in the_fact.supports_rules:
             for tuple in supported_rule.supported_by:
                 if(tuple[0] == the_fact):
                     supported_rule.supported_by.remove(tuple)
-                    
-            # for supported_fact in the_fact.supports_facts:
-            #     for tuple in supported_fact.supported_by:
-            #         if(tuple[0] == the_fact):
-            #             supported_fact.supported_by.remove(tuple)
-
             if len(supported_rule.supported_by) == 0 and not supported_rule.asserted:
+                the_rule = self._get_rule(supported_rule)
                 self.rules.remove(supported_rule)
-                the_rule = supported_rule
                 # check supported facts by this inferred rule.
                 # if that fact is not longer supported, RETRACT IT
                 for supported_fact in the_rule.supports_facts:
@@ -171,7 +165,9 @@ class KnowledgeBase(object):
                         if(tuple[1] == the_rule):
                             supported_fact.supported_by.remove(tuple)
                     if(len(supported_fact.supported_by) == 0):
-                        self.kb_retract(supported_fact)
+                        self.kb_remove(supported_fact)
+
+        self.facts.remove(the_fact)
 
 class InferenceEngine(object):
     def fc_infer(self, fact, rule, kb):
@@ -191,7 +187,6 @@ class InferenceEngine(object):
         # Student code goes here
         bindings = match(fact.statement, rule.lhs[0])
         if bindings:
-
             if(len(rule.lhs) == 1):
                 # the rule only has one predicate on the left, so we're inferring a fact
                 new_statement = instantiate(rule.rhs, bindings)
