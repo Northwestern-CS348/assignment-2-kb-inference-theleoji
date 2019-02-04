@@ -128,7 +128,25 @@ class KnowledgeBase(object):
         printv("Retracting {!r}", 0, verbose, [fact])
         ####################################################
         # Student code goes here
-        
+
+        the_fact = Fact();
+        for facti in self.facts:
+            if(util.match(facti.statement, fact.statement)):
+                the_fact = facti
+
+        self.facts.remove(the_fact)
+
+        for supported_fact in the_fact.supports_facts:
+            supported_fact.supported_by.remove(the_fact)
+            if supported_fact.supported_by.len == 0 and not supported_fact.asserted:
+                self.facts.remove(the_fact)
+
+        for supported_rule in the_fact.supports_rule:
+            supported_rule.supported_by.remove(the_fact)
+            if supported_rule.supported_by.len == 0 and not supported_rule.asserted:
+                self.rules.remove(the_fact)
+
+
 
 class InferenceEngine(object):
     def fc_infer(self, fact, rule, kb):
@@ -140,9 +158,11 @@ class InferenceEngine(object):
             kb (KnowledgeBase) - A KnowledgeBase
 
         Returns:
-            Nothing            
+            Nothing
         """
         printv('Attempting to infer from {!r} and {!r} => {!r}', 1, verbose,
             [fact.statement, rule.lhs, rule.rhs])
         ####################################################
         # Student code goes here
+        if util.match(fact.statement, rule.lhs[0]):
+            kb_assert(Rule((rule.lhs[1:], rule.rhs),util.match(fact.statement, rule.lhs[0])))
