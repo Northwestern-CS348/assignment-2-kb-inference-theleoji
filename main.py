@@ -18,7 +18,6 @@ class KBTest(unittest.TestCase):
         file = 'statements_kb5.txt'
         self.data = read.read_tokenize(file)
         data = read.read_tokenize(file)
-        self.KB = KnowledgeBase([], [])
         for item in data:
             if isinstance(item, Fact) or isinstance(item, Rule):
                 self.KB.kb_assert(item)
